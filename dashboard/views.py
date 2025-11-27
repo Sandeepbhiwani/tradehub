@@ -13,10 +13,9 @@ from django.core.serializers.json import DjangoJSONEncoder
 @login_required(login_url='login')
 def dashboard(request):
     positions = Position.objects.filter(user=request.user).select_related('stock')
-    open_positions = Position.objects.filter(user=request.user,is_closed=False)
-    unrealised_pnl = 0
-    portfolio_purchased_value = 0
-    portfolio_value = 0
+    open_positions = Position.objects.filter(user=request.user, is_closed=False)
+    portfolio_value = Decimal('0')
+    portfolio_purchased_value = Decimal('0')
     labels = [pos.stock.name for pos in open_positions]
     data = [pos.quantity * pos.buy_price for pos in open_positions]  # investment value per stock
 
@@ -28,10 +27,10 @@ def dashboard(request):
     chart_data_json = json.dumps(chart_data, cls=DjangoJSONEncoder)
 
     for position in open_positions:
-        portfolio_value += position.stock.current_price * position.quantity
-        portfolio_purchased_value = position.buy_price * position.quantity
+        portfolio_value += Decimal(position.stock.current_price) * Decimal(position.quantity)
+        portfolio_purchased_value += Decimal(str(position.buy_price)) * Decimal(position.quantity)
 
-    unrealised_pnl = float(portfolio_value) - portfolio_purchased_value
+    unrealised_pnl = float(portfolio_value - portfolio_purchased_value) if open_positions else 0
     context = {
         'portfolio_value': portfolio_value,
         'positions': positions,

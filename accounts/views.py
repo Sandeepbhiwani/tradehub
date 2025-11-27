@@ -13,9 +13,12 @@ from django.shortcuts import render, redirect
 from assets.models import order as Order
 from django.db import models
 from django.utils import timezone
-from django.contrib.auth import login, logout, authenticate
+from django.contrib.auth import login, logout, authenticate, get_user_model
 from .forms import CustomUserCreationForm
 from django.contrib.auth.forms import AuthenticationForm
+from dashboard.models import SiteSettings
+
+UserModel = get_user_model()
 
 
 def register_view(request):
@@ -24,7 +27,9 @@ def register_view(request):
         if form.is_valid():
             user = form.save()
             login(request, user)
-            messages.success(request, 'Registration successful! Welcome to our platform.')
+            site_settings = SiteSettings.objects.first()
+            site_name = site_settings.site_name if site_settings else 'TradeHub'
+            messages.success(request, f'Registration successful! Welcome to {site_name}.')
             return redirect('profile')  # Replace with your desired redirect
         else:
             messages.error(request, 'Please correct the errors below.')
@@ -38,12 +43,29 @@ def login_view(request):
     if request.method == 'POST':
         form = AuthenticationForm(request, data=request.POST)
         if form.is_valid():
-            username = form.cleaned_data.get('username')
+            identifier = form.cleaned_data.get('username')
             password = form.cleaned_data.get('password')
-            user = authenticate(username=username, password=password)
+
+            user = authenticate(request, username=identifier, password=password)
+
+            if user is None:
+                try:
+                    user_obj = UserModel.objects.get(username__iexact=identifier)
+                    user = authenticate(request, username=user_obj.email, password=password)
+                except UserModel.DoesNotExist:
+                    user = None
+
+            if user is None and '@' in identifier:
+                try:
+                    user_obj = UserModel.objects.get(email__iexact=identifier)
+                    user = authenticate(request, username=user_obj.email, password=password)
+                except UserModel.DoesNotExist:
+                    user = None
+
             if user is not None:
                 login(request, user)
-                messages.success(request, f'Welcome back, {username}!')
+                display_name = user.username or user.email
+                messages.success(request, f'Welcome back, {display_name}!')
                 next_url = request.GET.get('next', 'dashboard')  # Replace with your dashboard URL name
                 return redirect(next_url)
             else:

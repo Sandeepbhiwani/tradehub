@@ -12,6 +12,8 @@ from .models import Position
 from decimal import Decimal
 import json
 from django.core.serializers.json import DjangoJSONEncoder
+from django.http import JsonResponse
+from django.urls import reverse
 
 @login_required
 def orders_view(request):
@@ -86,23 +88,48 @@ def orders_view(request):
 
 @login_required
 def initiate_order(request):
-    if request.method == 'POST':
-        symbol = request.POST.get("symbol")
-        quantity = int(request.POST.get("quantity"))
-        order_type = request.POST.get("order_type")
-        # if not market_open(segment):
-        #     messages.error(request,'Market is closed.')
-        #     return redirect('/orders')
-        stock = Stock.objects.filter(symbol=symbol).first()
-        status, response = place_order(request.user, stock, quantity , order_type)
-        if status:
-            messages.success(request, response)
-        else:
-            messages.error(request, response)
-        return redirect('orders')
-    else:
+    is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
+
+    if request.method != 'POST':
+        if is_ajax:
+            return JsonResponse({'success': False, 'message': 'Invalid request method.'}, status=405)
         return redirect('watchlist')
+
+    symbol = (request.POST.get("symbol") or "").strip().upper()
+    order_type = (request.POST.get("order_type") or "BUY").upper()
+    quantity_raw = request.POST.get("quantity")
+
+    try:
+        quantity = int(quantity_raw)
+        if quantity <= 0:
+            raise ValueError
+    except (TypeError, ValueError):
+        return _order_response(request, False, "Please enter a valid quantity.", is_ajax)
+
+    stock = Stock.objects.filter(symbol=symbol).first()
+    if not stock:
+        return _order_response(request, False, "Selected stock could not be found.", is_ajax)
+
+    status, response = place_order(request.user, stock, quantity, order_type)
+    return _order_response(request, status, response, is_ajax)
     
+
+def _order_response(request, success, message, is_ajax):
+    redirect_url = reverse('orders')
+    if is_ajax:
+        status_code = 200 if success else 400
+        return JsonResponse({
+            'success': success,
+            'message': message,
+            'redirect_url': redirect_url if success else ''
+        }, status=status_code)
+
+    if success:
+        messages.success(request, message)
+    else:
+        messages.error(request, message)
+    return redirect('orders')
+
 
 @login_required
 def portfolio_view(request):
@@ -174,3 +201,35 @@ def portfolio_view(request):
     }
     
     return render(request, 'dashboard/portfolio.html', context)
+
+
+@login_required
+def close_position(request):
+    if request.method != 'POST':
+        return redirect('portfolio')
+
+    stock_id = request.POST.get('stock_id')
+    quantity_raw = request.POST.get('quantity')
+
+    try:
+        quantity = int(quantity_raw)
+    except (TypeError, ValueError):
+        messages.error(request, 'Unable to close the position. Invalid quantity provided.')
+        return redirect('portfolio')
+
+    if quantity <= 0:
+        messages.error(request, 'Position quantity must be greater than zero.')
+        return redirect('portfolio')
+
+    stock = Stock.objects.filter(id=stock_id).first()
+    if not stock:
+        messages.error(request, 'Stock not found.')
+        return redirect('portfolio')
+
+    success, response = place_order(request.user, stock, quantity, 'SELL')
+    if success:
+        messages.success(request, response)
+    else:
+        messages.error(request, response)
+
+    return redirect('portfolio')

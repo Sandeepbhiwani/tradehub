@@ -18,17 +18,23 @@
                     Online platform to invest in stocks, derivatives, mutual funds, ETFs, bonds, and more. We
                     connect our customers with the best.
                 </p>
-                <div class="mt-8 sm:mt-10 sm:flex sm:justify-center lg:justify-start">
-                    <div class="rounded-md shadow">
+                <div class="mt-8 sm:mt-10 flex flex-col sm:flex-row sm:items-center sm:space-x-3">
+                    <div class="rounded-md shadow w-full sm:w-auto">
                         <a href="{% url 'register' %}"
                             class="w-full cyber-border flex items-center justify-center px-8 py-4 border border-transparent text-base font-bold rounded-md text-cyber-dark bg-cyber-primary hover:bg-cyber-primary/90 md:py-4 md:text-lg md:px-10 transition-all hover:shadow-lg hover:shadow-cyber-primary/30">
                             Register Now
                         </a>
                     </div>
-                    <div class="mt-3 sm:mt-0 sm:ml-3">
+                    <div class="mt-3 sm:mt-0 w-full sm:w-auto">
                         <a href="{% url 'login' %}"
                             class="w-full flex items-center justify-center px-8 py-4 border border-transparent text-base font-bold rounded-md text-cyber-primary border-cyber-primary hover:bg-cyber-primary/10 md:py-4 md:text-lg md:px-10 transition-all">
                             <i class="fas fa-chart-line mr-2"></i> Login
+                        </a>
+                    </div>
+                    <div class="mt-3 sm:mt-0 w-full sm:w-auto">
+                        <a href="{% url 'contactus' %}"
+                            class="w-full flex items-center justify-center px-8 py-4 border border-transparent text-base font-bold rounded-md text-cyber-dark bg-white/10 hover:bg-white/20 md:py-4 md:text-lg md:px-10 transition-all">
+                            <i class="fas fa-headset mr-2"></i> Contact Support
                         </a>
                     </div>
                 </div>

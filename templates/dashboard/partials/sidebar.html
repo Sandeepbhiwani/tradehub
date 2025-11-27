@@ -1,8 +1,22 @@
 <!-- Sidebar -->
 <div id="sidebar" class="fixed md:relative w-64 bg-gray-900 border-r border-gray-800 h-full z-10 hidden md:block shadow-lg">
-    <div class="p-4 border-b border-gray-800">
-        <h1 class="text-2xl font-bold text-indigo-400 tracking-wide">{{site_settings.site_name}}</h1>
+<div class="p-4 border-b border-gray-800 flex items-center gap-3">
+    {% if site_settings and site_settings.logo %}
+    <img src="{{ site_settings.logo.url }}" alt="{{ site_settings.site_name }}" class="h-10 w-auto rounded-xl border border-indigo-500/40 shadow">
+    {% else %}
+    <div class="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-400/40 flex items-center justify-center">
+        <svg class="w-5 h-5 text-indigo-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+        </svg>
     </div>
+    {% endif %}
+    <div>
+        <h1 class="text-lg font-bold text-indigo-100 tracking-wide">{{site_settings.site_name|default:'TradeHub'}}</h1>
+        {% if site_settings and site_settings.tagline %}
+        <p class="text-xs text-indigo-300/80">{{ site_settings.tagline }}</p>
+        {% endif %}
+    </div>
+</div>
 
     <nav class="mt-6">
         <ul class="space-y-2 px-4">

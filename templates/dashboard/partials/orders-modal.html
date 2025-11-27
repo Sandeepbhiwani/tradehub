@@ -212,17 +212,12 @@
         </div>
     </div>
 </div>
-<form action="{% url 'initiate_order' %}" method="post" id="place-order-form">
-    {% csrf_token %}
-    <input type="hidden" name="symbol" id="symbol_input">
-    <input type="hidden" name="quantity" id="quantity_input">
-    <input type="hidden" name="order_type" id="order_type_input">
-</form>
-
 <script>
     // Enhanced Stock Modal Management
     let currentStockData = null;
     let currentAction = 'buy';
+    const initiateOrderUrl = "{% url 'initiate_order' %}";
+    let isPlacingOrder = false;
 
     function openStockModal(stockElement, action = 'buy') {
         currentStockData = {
@@ -342,6 +337,31 @@
         document.getElementById('totalAmount').textContent = `₹${totalAmount.toFixed(2)}`;
     }
 
+    function setOrderButtonState(isLoading) {
+        const orderActionBtn = document.getElementById('orderActionBtn');
+        if (!orderActionBtn) {
+            return;
+        }
+
+        isPlacingOrder = isLoading;
+
+        if (isLoading) {
+            orderActionBtn.disabled = true;
+            orderActionBtn.classList.add('opacity-70', 'cursor-not-allowed');
+            orderActionBtn.innerHTML = `<span class="flex items-center justify-center gap-2">
+                <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4A8 8 0 104 12z"></path>
+                </svg>
+                Processing...
+            </span>`;
+        } else {
+            orderActionBtn.disabled = false;
+            orderActionBtn.classList.remove('opacity-70', 'cursor-not-allowed');
+            orderActionBtn.textContent = currentAction === 'buy' ? 'Buy Now' : 'Sell Now';
+        }
+    }
+
     function updateAnalysisContent() {
         if (!currentStockData) return;
 
@@ -380,28 +400,52 @@
         return '';
     }
     
-    function initiateOrder(symbol, quantity, order_type) {
-        document.getElementById('symbol_input').value = symbol;
-        document.getElementById('quantity_input').value = quantity;
-        document.getElementById('order_type_input').value = order_type;
-        document.getElementById('place-order-form').submit()
-    }
+    async function placeOrder() {
+        if (!currentStockData || isPlacingOrder) return;
 
-
-    function placeOrder() {
-        if (!currentStockData) return;
-
-        const quantity = parseInt(document.getElementById('quantity').value) || 1;
-        const symbol = currentStockData.symbol;
-        const totalAmount = document.getElementById('totalAmount').textContent;
-        const action = currentAction === 'buy' ? 'bought' : 'sold';
-        showToast(`Successfully ${action} ${quantity} shares of ${currentStockData.symbol} for ${totalAmount}`);
-        closeStockModal();
-        let otype = "SELL";
-        if(action == 'bought') {
-            otype = "BUY"
+        const quantity = parseInt(document.getElementById('quantity').value, 10) || 0;
+        if (quantity <= 0) {
+            showToast('Please enter a valid quantity.', 'error');
+            return;
         }
-        initiateOrder(symbol, quantity, otype);
+
+        const orderType = currentAction === 'buy' ? 'BUY' : 'SELL';
+        const payload = new URLSearchParams({
+            symbol: currentStockData.symbol,
+            quantity: quantity,
+            order_type: orderType,
+        });
+
+        setOrderButtonState(true);
+
+        try {
+            const response = await fetch(initiateOrderUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': getCSRFToken(),
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: payload
+            });
+
+            const data = await response.json();
+            showToast(data.message || 'Order processed.', data.success ? 'success' : 'error');
+
+            if (data.success) {
+                closeStockModal();
+                if (data.redirect_url) {
+                    setTimeout(() => {
+                        window.location.href = data.redirect_url;
+                    }, 800);
+                }
+            }
+        } catch (error) {
+            console.error(error);
+            showToast('Unable to place order right now. Please try again.', 'error');
+        } finally {
+            setOrderButtonState(false);
+        }
     }
 
     function toggleWatchlist(stockElement) {
@@ -425,40 +469,50 @@
 
     function showToast(message, type = 'success') {
         const toast = document.getElementById('toast');
-        const toastMessage = document.getElementById('toastMessage');
-
-        // Update toast style based on type
-        if (type === 'error') {
-            toast.className = 'fixed top-4 right-4 z-50 hidden animate-slide-in-right';
-            toast.innerHTML = `
-                <div class="bg-gradient-to-r from-rose-500 to-rose-600 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 border border-rose-400/30">
-                    <div class="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
-                        <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/>
-                        </svg>
-                    </div>
-                    <span class="font-semibold">${message}</span>
-                </div>
-            `;
-        } else {
-            toast.className = 'fixed top-4 right-4 z-50 hidden animate-slide-in-right';
-            toast.innerHTML = `
-                <div class="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 border border-emerald-400/30">
-                    <div class="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
-                        <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
-                        </svg>
-                    </div>
-                    <span class="font-semibold">${message}</span>
-                </div>
-            `;
+        if (!toast) {
+            return;
         }
 
-        toast.classList.remove('hidden');
+        const palette = {
+            success: {
+                border: 'border-emerald-400',
+                accent: 'text-emerald-600',
+                iconBg: 'bg-emerald-100',
+                icon: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>'
+            },
+            error: {
+                border: 'border-rose-400',
+                accent: 'text-rose-600',
+                iconBg: 'bg-rose-100',
+                icon: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>'
+            },
+            info: {
+                border: 'border-sky-400',
+                accent: 'text-sky-600',
+                iconBg: 'bg-sky-100',
+                icon: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M12 6a9 9 0 100 18 9 9 0 000-18z"/></svg>'
+            }
+        };
+
+        const styleConfig = palette[type] || palette.success;
+
+        toast.className = 'fixed top-4 right-4 z-50 animate-slide-in-right';
+        toast.innerHTML = `
+            <div class="rounded-2xl bg-white text-gray-900 shadow-2xl px-5 py-4 border-l-4 ${styleConfig.border}">
+                <div class="flex items-start gap-3">
+                    <div class="w-9 h-9 rounded-xl flex items-center justify-center ${styleConfig.iconBg} ${styleConfig.accent}">
+                        ${styleConfig.icon}
+                    </div>
+                    <p class="text-sm font-semibold leading-snug">${message}</p>
+                </div>
+            </div>
+        `;
 
         setTimeout(() => {
             toast.classList.add('hidden');
-        }, 4000);
+        }, 5500);
+
+        toast.classList.remove('hidden');
     }
 
     // Enhanced Event Listeners
@@ -486,20 +540,29 @@
 
         // Add touch and swipe support for mobile
         let touchStartY = 0;
-        const modalContent = document.querySelector('#stockModal > div > div');
+        let allowSwipeClose = false;
+        const modalScrollArea = document.querySelector('#stockModal .custom-scrollbar');
 
-        if (modalContent) {
-            modalContent.addEventListener('touchstart', (e) => {
+        if (modalScrollArea) {
+            modalScrollArea.addEventListener('touchstart', (e) => {
                 touchStartY = e.touches[0].clientY;
+                allowSwipeClose = modalScrollArea.scrollTop === 0;
             });
 
-            modalContent.addEventListener('touchmove', (e) => {
-                const touchY = e.touches[0].clientY;
-                const diff = touchStartY - touchY;
-
-                if (diff > 50) { // Swipe down to close
-                    closeStockModal();
+            modalScrollArea.addEventListener('touchmove', (e) => {
+                if (!allowSwipeClose) {
+                    return;
                 }
+                const touchY = e.touches[0].clientY;
+                const diff = touchY - touchStartY;
+                if (diff > 90) {
+                    closeStockModal();
+                    allowSwipeClose = false;
+                }
+            });
+
+            modalScrollArea.addEventListener('touchend', () => {
+                allowSwipeClose = false;
             });
         }
     });

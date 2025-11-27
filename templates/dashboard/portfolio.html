@@ -76,6 +76,7 @@
                                     <th class="text-right py-3 px-4 text-gray-400 text-sm font-medium">Avg. Buy</th>
                                     <th class="text-right py-3 px-4 text-gray-400 text-sm font-medium">Current</th>
                                     <th class="text-right py-3 px-4 text-gray-400 text-sm font-medium">P&L</th>
+                                    <th class="text-right py-3 px-4 text-gray-400 text-sm font-medium">Action</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -110,6 +111,21 @@
                                                 {{ summary.pnl_percentage|floatformat:2 }}%
                                             </p>
                                         </div>
+                                    </td>
+                                    <td class="py-4 px-4 text-right">
+                                        <form method="post" action="{% url 'close_position' %}">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="stock_id" value="{{ summary.stock.id }}">
+                                            <input type="hidden" name="quantity" value="{{ summary.total_quantity }}">
+                                            <button type="submit"
+                                                class="close-position-btn inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border border-red-400/40 text-red-300 hover:bg-red-500/10 transition-colors"
+                                                data-stock="{{ summary.stock.symbol }}">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                                </svg>
+                                                Close
+                                            </button>
+                                        </form>
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -234,4 +250,18 @@
         transform: scale(0.95);
     }
 </style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('.close-position-btn').forEach((button) => {
+            button.addEventListener('click', function (event) {
+                const symbol = this.dataset.stock;
+                const confirmed = confirm(`Close the open position in ${symbol}?`);
+                if (!confirmed) {
+                    event.preventDefault();
+                }
+            });
+        });
+    });
+</script>
 {% endblock %}
