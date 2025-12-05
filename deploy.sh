@@ -52,6 +52,7 @@ source venv/bin/activate
 
 echo -e "\n${YELLOW}Step 5: Install Python Dependencies${NC}"
 pip install --upgrade pip setuptools wheel
+cd tradehub-setup
 pip install -r requirements.txt
 
 echo -e "\n${YELLOW}Step 6: Setup PostgreSQL Database${NC}"
